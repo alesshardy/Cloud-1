@@ -1,0 +1,10 @@
+# --- Sécurité (NE JAMAIS ENLEVER ÇA) ---
+*.pem
+*.key
+.env
+.DS_Store
+
+# --- Ansible ---
+*.retry
+inventory.ini
+ansible.cfg
