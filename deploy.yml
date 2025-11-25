@@ -1,0 +1,49 @@
+- name: Deploy Cloud-1 on AWS
+  hosts: webservers   # cible definis dans inventory.ini
+  become: yes         # execute les cmd en sudo (root)
+  vars:
+    project_path: /home/ubuntu/inception # ou les fichiers sont dans le serveur
+  
+  tasks:
+    #1 : preparation du serv
+    - name: Maj cache APT
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Init dep systeme de base
+      apt:
+        pkg:
+          - curl
+          - ca-certificates
+          - gnupg
+        state: present
+
+    #2 : init docker
+    - name: Install Docker
+      shell: "curl -fsSL https://get.docker.com | sh"
+      args:
+        creates: /usr/bin/docker # si fichier existe on saute cette etape
+    
+    #3 : Deploi des fichiers
+    - name: Create folder for project one the server
+      file:
+        path: "{{ project_path }}"
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
+    
+    - name: Copy config files (docker-compose & .env)
+      copy:
+        src: ./deployment/
+        dest: "{{ project_path }}"
+        owner: ubuntu
+        group: ubuntu
+        mode: '0640'
+
+    #4 : launch
+    - name: Start Docker
+      shell: docker compose up -d --remove-orphans
+      args:
+        chdir: "{{ project_path }}"
