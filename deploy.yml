@@ -10,6 +10,10 @@
       apt:
         update_cache: yes
         cache_valid_time: 3600
+      register: apt_action
+      retries: 20
+      delay: 10
+      until: apt_action is success
 
     - name: Init dep systeme de base
       apt:
@@ -41,6 +45,25 @@
         owner: ubuntu
         group: ubuntu
         mode: '0640'
+    
+    # creation dossier cert
+    - name: Create certs directory
+      file:
+        path: "{{ project_path }}/certs"
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
+
+    # gnerate self-sign SSL cert
+    - name: Generate Self-Signed SSL Certificate
+      shell: |
+        openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+        -keyout {{ project_path }}/certs/nginx-selfsigned.key \
+        -out {{ project_path }}/certs/nginx-selfsigned.crt \
+        -subj "/C=FR/ST=IDF/L=Paris/O=42/OU=Cloud1/Cn=localhost"
+      args:
+        creates: "{{ project_path }}/certs/nginx-selfsigned.crt"
 
     #4 : launch
     - name: Start Docker
