@@ -1,72 +1,11 @@
+---
 - name: Deploy Cloud-1 on AWS
-  hosts: webservers   # cible definis dans inventory.ini
-  become: yes         # execute les cmd en sudo (root)
-  vars:
-    project_path: /home/ubuntu/inception # ou les fichiers sont dans le serveur
-  
-  tasks:
-    #1 : preparation du serv
-    - name: Maj cache APT
-      apt:
-        update_cache: yes
-        cache_valid_time: 3600
-      register: apt_action
-      retries: 20
-      delay: 10
-      until: apt_action is success
+  hosts: webservers        # cible definie dans inventory.ini
+  become: yes              # execute les commandes en sudo (root)
 
-    - name: Init dep systeme de base
-      apt:
-        pkg:
-          - curl
-          - ca-certificates
-          - gnupg
-        state: present
-
-    #2 : init docker
-    - name: Install Docker
-      shell: "curl -fsSL https://get.docker.com | sh"
-      args:
-        creates: /usr/bin/docker # si fichier existe on saute cette etape
-    
-    #3 : Deploi des fichiers
-    - name: Create folder for project one the server
-      file:
-        path: "{{ project_path }}"
-        state: directory
-        owner: ubuntu
-        group: ubuntu
-        mode: '0755'
-    
-    - name: Copy config files (docker-compose & .env)
-      copy:
-        src: ./deployment/
-        dest: "{{ project_path }}"
-        owner: ubuntu
-        group: ubuntu
-        mode: '0640'
-    
-    # creation dossier cert
-    - name: Create certs directory
-      file:
-        path: "{{ project_path }}/certs"
-        state: directory
-        owner: ubuntu
-        group: ubuntu
-        mode: '0755'
-
-    # gnerate self-sign SSL cert
-    - name: Generate Self-Signed SSL Certificate
-      shell: |
-        openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-        -keyout {{ project_path }}/certs/nginx-selfsigned.key \
-        -out {{ project_path }}/certs/nginx-selfsigned.crt \
-        -subj "/C=FR/ST=IDF/L=Paris/O=42/OU=Cloud1/Cn=localhost"
-      args:
-        creates: "{{ project_path }}/certs/nginx-selfsigned.crt"
-
-    #4 : launch
-    - name: Start Docker
-      shell: docker compose up -d --remove-orphans
-      args:
-        chdir: "{{ project_path }}"
+  # Les variables viennent de group_vars/all/ (vars.yml + vault.yml)
+  roles:
+    - { role: common, tags: ['common', 'base'] }   # prepa serveur (apt, dossiers)
+    - { role: docker, tags: ['docker'] }            # moteur Docker
+    - { role: certs,  tags: ['certs', 'tls'] }      # certificat TLS auto-signe
+    - { role: deploy, tags: ['deploy', 'app'] }     # fichiers + lancement de la stack

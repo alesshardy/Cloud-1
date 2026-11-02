@@ -6,7 +6,7 @@
 
 # --- Ansible ---
 inventory.ini
-ansible.cfg
+group_vars/all/vault.yml
 *.retry
 
 #--- Terraform ---

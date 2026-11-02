@@ -1,0 +1,6 @@
+---
+# Modele de secrets. A copier en group_vars/all/vault.yml puis renseigner.
+#   cp group_vars/all/vault.yml.example group_vars/all/vault.yml
+# Recommande ensuite : ansible-vault encrypt group_vars/all/vault.yml
+mysql_root_password: "CHANGE_ME_mot_de_passe_root"
+mysql_password: "CHANGE_ME_mot_de_passe_utilisateur"

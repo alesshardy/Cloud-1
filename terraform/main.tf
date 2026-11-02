@@ -80,7 +80,17 @@ resource "aws_instance" "web_server" {
     }
 }
 
-#4 Affiche l'IP
+#5 Elastic IP : IP publique fixe qui ne change pas apres un stop/start
+resource "aws_eip" "web_ip" {
+    instance = aws_instance.web_server.id
+    vpc      = true
+
+    tags = {
+        Name = "Cloud-1-EIP"
+    }
+}
+
+#6 Affiche l'IP fixe
 output "server_ip" {
-    value = aws_instance.web_server.public_ip
+    value = aws_eip.web_ip.public_ip
 }

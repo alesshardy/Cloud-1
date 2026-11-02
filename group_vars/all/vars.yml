@@ -1,0 +1,14 @@
+---
+# Variables NON sensibles (versionnees dans git)
+
+# Chemin de deploiement sur le serveur cible
+project_path: /home/ubuntu/inception
+
+# Configuration base de donnees (le nom d'utilisateur/base n'est pas un secret)
+mysql_database: wordpress
+mysql_user: apintus
+
+# Nom de domaine du site.
+# Laisse vide -> l'IP publique du serveur (ansible_host de l'inventory) est utilisee.
+# Pour un domaine DuckDNS, renseigner ici, ex: "moncloud.duckdns.org"
+domain_name: ""

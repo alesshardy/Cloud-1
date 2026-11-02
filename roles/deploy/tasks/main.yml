@@ -1,0 +1,31 @@
+---
+# Role "deploy" : envoi des fichiers de conf + lancement de la stack
+- name: Copier le docker-compose
+  copy:
+    src: docker-compose.yml
+    dest: "{{ project_path }}/docker-compose.yml"
+    owner: ubuntu
+    group: ubuntu
+    mode: '0644'
+
+- name: Copier la configuration nginx
+  copy:
+    src: nginx.conf
+    dest: "{{ project_path }}/nginx.conf"
+    owner: ubuntu
+    group: ubuntu
+    mode: '0644'
+  notify: Restart nginx container
+
+- name: Generer le fichier .env (secrets depuis le vault, IP depuis l'inventory)
+  template:
+    src: env.j2
+    dest: "{{ project_path }}/.env"
+    owner: ubuntu
+    group: ubuntu
+    mode: '0600'  # lisible uniquement par le proprietaire : contient les mots de passe
+
+- name: Lancer la stack Docker Compose
+  shell: docker compose up -d --remove-orphans
+  args:
+    chdir: "{{ project_path }}"

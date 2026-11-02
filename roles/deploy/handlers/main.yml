@@ -1,0 +1,8 @@
+---
+# nginx cache la resolution DNS des autres conteneurs au demarrage :
+# s'ils sont recrees (nouvelle IP interne) sans que nginx redemarre,
+# il tombe en 502. On le redemarre donc a chaque changement de config.
+- name: Restart nginx container
+  shell: docker compose restart nginx
+  args:
+    chdir: "{{ project_path }}"

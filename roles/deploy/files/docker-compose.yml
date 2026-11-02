@@ -58,4 +58,3 @@ volumes:
 
 networks:
   wp_network:
-  

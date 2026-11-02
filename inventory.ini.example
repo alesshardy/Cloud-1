@@ -1,0 +1,4 @@
+[webservers]
+# Remplacer X.X.X.X par l'IP publique de l'instance
+# et le chemin par votre cle SSH privee.
+X.X.X.X ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/votre-cle.pem

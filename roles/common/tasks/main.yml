@@ -1,0 +1,26 @@
+---
+# Role "common" : preparation de base du serveur cible
+- name: Maj cache APT
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  register: apt_action
+  retries: 20
+  delay: 10
+  until: apt_action is success
+
+- name: Init dependances systeme de base
+  apt:
+    pkg:
+      - curl
+      - ca-certificates
+      - gnupg
+    state: present
+
+- name: Creer le dossier du projet sur le serveur
+  file:
+    path: "{{ project_path }}"
+    state: directory
+    owner: ubuntu
+    group: ubuntu
+    mode: '0755'

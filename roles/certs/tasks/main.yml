@@ -1,0 +1,18 @@
+---
+# Role "certs" : generation du certificat TLS auto-signe
+- name: Creer le dossier des certificats
+  file:
+    path: "{{ project_path }}/certs"
+    state: directory
+    owner: ubuntu
+    group: ubuntu
+    mode: '0755'
+
+- name: Generer le certificat SSL auto-signe
+  shell: |
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+    -keyout {{ project_path }}/certs/nginx-selfsigned.key \
+    -out {{ project_path }}/certs/nginx-selfsigned.crt \
+    -subj "/C=FR/ST=IDF/L=Paris/O=42/OU=Cloud1/CN={{ domain_name | default(ansible_host, true) }}"
+  args:
+    creates: "{{ project_path }}/certs/nginx-selfsigned.crt"  # ne regenere pas si deja present

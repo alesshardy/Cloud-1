@@ -1,0 +1,12 @@
+---
+# Role "docker" : installation du moteur Docker
+- name: Install Docker
+  shell: "curl -fsSL https://get.docker.com | sh"
+  args:
+    creates: /usr/bin/docker  # si le binaire existe deja on saute cette etape (idempotence)
+
+- name: Activer et demarrer le service Docker (persiste au reboot)
+  service:
+    name: docker
+    state: started
+    enabled: yes
