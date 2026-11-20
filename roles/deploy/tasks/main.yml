@@ -1,5 +1,5 @@
 ---
-# Role "deploy" : envoi des fichiers de conf + lancement de la stack
+# Role "deploy" : envoi des fichiers de conf + secrets + lancement de la stack
 - name: Copier le docker-compose
   copy:
     src: docker-compose.yml
@@ -8,24 +8,71 @@
     group: ubuntu
     mode: '0644'
 
-- name: Copier la configuration nginx
-  copy:
-    src: nginx.conf
+- name: Generer la configuration nginx (domaine + mode TLS)
+  template:
+    src: nginx.conf.j2
     dest: "{{ project_path }}/nginx.conf"
     owner: ubuntu
     group: ubuntu
     mode: '0644'
   notify: Restart nginx container
 
-- name: Generer le fichier .env (secrets depuis le vault, IP depuis l'inventory)
+- name: Generer le fichier .env (variables NON sensibles uniquement)
   template:
     src: env.j2
     dest: "{{ project_path }}/.env"
     owner: ubuntu
     group: ubuntu
-    mode: '0600'  # lisible uniquement par le proprietaire : contient les mots de passe
+    mode: '0644'
+
+# Le compose monte ./certs ; on s'assure qu'il existe (vide en mode letsencrypt)
+- name: S'assurer que le dossier des certificats existe
+  file:
+    path: "{{ project_path }}/certs"
+    state: directory
+    owner: ubuntu
+    group: ubuntu
+    mode: '0755'
+
+# --- Docker secrets : les mots de passe sont ecrits dans des fichiers dedies ---
+- name: Creer le dossier des secrets
+  file:
+    path: "{{ project_path }}/secrets"
+    state: directory
+    owner: ubuntu
+    group: ubuntu
+    mode: '0700'
+
+- name: Deployer le mot de passe root MariaDB (docker secret)
+  copy:
+    content: "{{ mysql_root_password }}"
+    dest: "{{ project_path }}/secrets/db_root_password"
+    owner: ubuntu
+    group: ubuntu
+    # 0644 : lisible par www-data/mysql DANS le conteneur
+    # (le dossier parent secrets/ en 0700 protege l'acces cote hote)
+    mode: '0644'
+  no_log: true
+
+- name: Deployer le mot de passe applicatif MariaDB (docker secret)
+  copy:
+    content: "{{ mysql_password }}"
+    dest: "{{ project_path }}/secrets/db_password"
+    owner: ubuntu
+    group: ubuntu
+    # 0644 : lisible par www-data/mysql DANS le conteneur
+    # (le dossier parent secrets/ en 0700 protege l'acces cote hote)
+    mode: '0644'
+  no_log: true
 
 - name: Lancer la stack Docker Compose
   shell: docker compose up -d --remove-orphans
   args:
     chdir: "{{ project_path }}"
+  register: compose_up
+  # "changed" seulement si compose a reellement cree/demarre/recree un conteneur
+  # (sinon il affiche juste "Running" -> idempotent)
+  changed_when: >-
+    'Created' in (compose_up.stdout + compose_up.stderr) or
+    'Started' in (compose_up.stdout + compose_up.stderr) or
+    'Recreated' in (compose_up.stdout + compose_up.stderr)

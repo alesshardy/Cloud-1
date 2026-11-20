@@ -1,6 +1,6 @@
 server {
     listen 80;
-    server_name _;
+    server_name {{ domain_name | default(ansible_host, true) }};
 
     #redirect auto http -> https
     return 301 https://$host$request_uri;
@@ -8,11 +8,16 @@ server {
 
 server {
     listen 443 ssl;
-    server_name _;
+    server_name {{ domain_name | default(ansible_host, true) }};
 
     #certificat ssl
-    ssl_certificate /etc/nginx/certs/nginx-selfsigned.crt;
+{% if tls_mode == 'letsencrypt' %}
+    ssl_certificate     /etc/letsencrypt/live/{{ domain_name }}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{{ domain_name }}/privkey.pem;
+{% else %}
+    ssl_certificate     /etc/nginx/certs/nginx-selfsigned.crt;
     ssl_certificate_key /etc/nginx/certs/nginx-selfsigned.key;
+{% endif %}
     ssl_protocols TLSv1.2 TLSv1.3;
 
     # DNS interne Docker : force une resolution dynamique des noms de service

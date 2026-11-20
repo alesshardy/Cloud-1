@@ -8,6 +8,7 @@
   retries: 20
   delay: 10
   until: apt_action is success
+  changed_when: false   # rafraichir l'index apt n'est pas un changement de config
 
 - name: Init dependances systeme de base
   apt:

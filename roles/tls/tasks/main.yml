@@ -1,0 +1,58 @@
+---
+# Role "tls" : certificat TLS
+#   tls_mode == 'letsencrypt' -> vrai certificat Let's Encrypt (necessite un domaine DuckDNS)
+#   tls_mode == 'selfsigned'  -> certificat auto-signe (pour tester sans domaine)
+
+# ---------- Let's Encrypt ----------
+- name: Verifier qu'un domaine est defini pour Let's Encrypt
+  assert:
+    that:
+      - domain_name is defined
+      - domain_name | length > 0
+    fail_msg: >-
+      tls_mode=letsencrypt requiert 'domain_name' (ex: moncloud.duckdns.org)
+      dans group_vars/all/vars.yml, pointant vers l'IP publique du serveur.
+  when: tls_mode == 'letsencrypt'
+
+- name: Installer Certbot
+  apt:
+    name: certbot
+    state: present
+  when: tls_mode == 'letsencrypt'
+
+# Validation HTTP-01 en mode standalone : certbot ecoute temporairement sur le port 80.
+# Ce role s'execute AVANT le role deploy, donc nginx n'occupe pas encore le port 80.
+- name: Obtenir le certificat Let's Encrypt (standalone)
+  command:
+    argv:
+      - certbot
+      - certonly
+      - --standalone
+      - -d
+      - "{{ domain_name }}"
+      - --email
+      - "{{ letsencrypt_email }}"
+      - --agree-tos
+      - --non-interactive
+    creates: "/etc/letsencrypt/live/{{ domain_name }}/fullchain.pem"  # idempotence
+  when: tls_mode == 'letsencrypt'
+
+# ---------- Fallback auto-signe ----------
+- name: Creer le dossier des certificats
+  file:
+    path: "{{ project_path }}/certs"
+    state: directory
+    owner: ubuntu
+    group: ubuntu
+    mode: '0755'
+  when: tls_mode == 'selfsigned'
+
+- name: Generer le certificat SSL auto-signe
+  shell: |
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+    -keyout {{ project_path }}/certs/nginx-selfsigned.key \
+    -out {{ project_path }}/certs/nginx-selfsigned.crt \
+    -subj "/C=FR/ST=IDF/L=Paris/O=42/OU=Cloud1/CN={{ domain_name | default(ansible_host, true) }}"
+  args:
+    creates: "{{ project_path }}/certs/nginx-selfsigned.crt"
+  when: tls_mode == 'selfsigned'

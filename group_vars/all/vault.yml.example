@@ -4,3 +4,4 @@
 # Recommande ensuite : ansible-vault encrypt group_vars/all/vault.yml
 mysql_root_password: "CHANGE_ME_mot_de_passe_root"
 mysql_password: "CHANGE_ME_mot_de_passe_utilisateur"
+wp_admin_password: "CHANGE_ME_mot_de_passe_admin_wordpress"

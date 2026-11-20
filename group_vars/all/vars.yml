@@ -8,7 +8,22 @@ project_path: /home/ubuntu/inception
 mysql_database: wordpress
 mysql_user: apintus
 
-# Nom de domaine du site.
-# Laisse vide -> l'IP publique du serveur (ansible_host de l'inventory) est utilisee.
-# Pour un domaine DuckDNS, renseigner ici, ex: "moncloud.duckdns.org"
+# Nom de domaine du site (DuckDNS recommande, gratuit).
+# Doit pointer vers l'IP publique (Elastic IP) du serveur.
+# Laisse vide -> l'IP publique est utilisee (uniquement valable en mode selfsigned).
+# Exemple : "moncloud.duckdns.org"
 domain_name: ""
+
+# Mode TLS :
+#   'letsencrypt' -> vrai certificat (necessite domain_name + port 80 joignable)
+#   'selfsigned'  -> certificat auto-signe (pour tester sans domaine)
+tls_mode: selfsigned
+
+# Email de contact Let's Encrypt (notifications d'expiration). Non sensible.
+letsencrypt_email: "alesshardy22@gmail.com"
+
+# Installation automatique du site WordPress (non sensibles)
+# Le mot de passe admin est dans le vault (wp_admin_password)
+wp_title: "Cloud-1"
+wp_admin_user: "admincloud1"
+wp_admin_email: "alesshardy22@gmail.com"

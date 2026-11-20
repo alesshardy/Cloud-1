@@ -7,5 +7,6 @@
   roles:
     - { role: common, tags: ['common', 'base'] }   # prepa serveur (apt, dossiers)
     - { role: docker, tags: ['docker'] }            # moteur Docker
-    - { role: certs,  tags: ['certs', 'tls'] }      # certificat TLS auto-signe
-    - { role: deploy, tags: ['deploy', 'app'] }     # fichiers + lancement de la stack
+    - { role: tls,    tags: ['tls', 'certs'] }      # certificat TLS (Let's Encrypt / auto-signe)
+    - { role: deploy,    tags: ['deploy', 'app'] }  # fichiers + lancement de la stack
+    - { role: wordpress, tags: ['wordpress', 'wp'] } # install auto du site (wp-cli)

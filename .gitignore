@@ -6,7 +6,8 @@
 
 # --- Ansible ---
 inventory.ini
-group_vars/all/vault.yml
+# group_vars/all/vault.yml est VOLONTAIREMENT versionne : il est chiffre (ansible-vault).
+# Le mot de passe du vault reste hors du depot (fourni a l'oral en correction).
 *.retry
 
 #--- Terraform ---

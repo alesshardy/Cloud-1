@@ -1,0 +1,35 @@
+---
+# Role "wordpress" : installe le site automatiquement via wp-cli (idempotent)
+# -> le correcteur tombe sur un site deja pret, pas sur l'assistant de config.
+
+- name: Attendre que MariaDB accepte les connexions
+  shell: docker compose exec -T db mariadb-admin ping -h localhost --silent
+  args:
+    chdir: "{{ project_path }}"
+  register: db_ping
+  until: db_ping.rc == 0
+  retries: 30
+  delay: 3
+  changed_when: false
+
+- name: Verifier si WordPress est deja installe
+  shell: docker compose run --rm wpcli wp core is-installed
+  args:
+    chdir: "{{ project_path }}"
+  register: wp_check
+  changed_when: false
+  failed_when: wp_check.rc not in [0, 1]   # 0 = installe, 1 = pas installe
+
+- name: Installer WordPress (premier deploiement uniquement)
+  shell: >
+    docker compose run --rm wpcli wp core install
+    --url="https://{{ domain_name | default(ansible_host, true) }}"
+    --title="{{ wp_title }}"
+    --admin_user="{{ wp_admin_user }}"
+    --admin_email="{{ wp_admin_email }}"
+    --admin_password="{{ wp_admin_password }}"
+    --skip-email
+  args:
+    chdir: "{{ project_path }}"
+  when: wp_check.rc == 1
+  no_log: true
