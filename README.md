@@ -1,79 +1,91 @@
-# Cloud-1 — Déploiement automatisé d'Inception
+# Cloud-1 — Déploiement automatisé d'une stack WordPress sur AWS
 
-Terraform provisionne un serveur vierge sur AWS, Ansible s'y connecte en SSH pour installer Docker et déployer une stack de 4 conteneurs via docker-compose, le tout automatisé, idempotent et avec des secrets chiffrés.
+Projet **Cloud-1** de l'école 42 : provisionner une infrastructure cloud et y déployer
+une application web entièrement automatisée, reproductible et sécurisée — sans aucune
+intervention manuelle sur le serveur.
+
+Terraform crée le serveur sur **AWS**, Ansible s'y connecte en SSH pour installer Docker
+et orchestrer une stack de conteneurs (**WordPress + MariaDB + phpMyAdmin + nginx**).
+Le tout est **idempotent** (rejouable sans effet de bord) et les secrets sont **chiffrés**
+dans le dépôt via `ansible-vault`.
 
 ---
 
-Déploie WordPress + MariaDB + phpMyAdmin + nginx (1 process = 1 conteneur) sur une
-instance AWS, via **Terraform** (infra) et **Ansible** (config + Docker).
+## Architecture
 
-> Le vault `group_vars/all/vault.yml` est versionné **chiffré** (ansible-vault).
-> Son mot de passe est fourni à l'oral, jamais dans le dépôt.
-
----
-
-## Prérequis (machine de contrôle)
-
-```bash
-pipx install ansible            # ou : pip install --user ansible
-pipx install awscli            # si provisioning AWS
-# terraform : https://developer.hashicorp.com/terraform/install
-aws configure                  # clé AWS + région eu-west-3
 ```
-Aucune collection Ansible externe nécessaire (modules `ansible.builtin` uniquement).
-Il faut aussi la clé SSH `~/.ssh/cloud1-paris.pem` (hors dépôt).
-
----
-
-## Déploiement
-
-```bash
-# 1. Créer l'infra (instance + Elastic IP + firewall)
-cd terraform
-terraform init
-terraform apply                # -> tape "yes"
-terraform output server_ip     # note l'IP
-
-# 2. Renseigner l'inventory avec cette IP
-cd ..
-cp inventory.ini.example inventory.ini
-#   puis remplace X.X.X.X par l'IP (ou : sed -i 's/X.X.X.X/<IP>/' inventory.ini)
-
-# 3. Déployer (mot de passe du vault demandé)
-ansible-playbook deploy.yml --ask-vault-pass
+┌──────────────┐        ┌──────────────────────── Instance AWS (Ubuntu) ───────────────────────┐
+│  Terraform   │  crée  │                                                                        │
+│  (infra)     │ ─────► │   ┌────────┐   docker-compose                                          │
+└──────────────┘        │   │ nginx  │  reverse-proxy TLS (80 → redirect, 443 → HTTPS)           │
+                        │   └───┬────┘                                                           │
+┌──────────────┐  SSH   │       │                                                                │
+│   Ansible    │ ─────► │   ┌───▼──────┐   ┌────────────┐   ┌──────────┐                         │
+│  (config)    │        │   │ wordpress│   │ phpmyadmin │   │ mariadb  │ ◄── volumes persistés   │
+└──────────────┘        │   └──────────┘   └────────────┘   └──────────┘                         │
+                        └────────────────────────────────────────────────────────────────────────┘
 ```
 
-Site : `https://<IP>`  ·  phpMyAdmin : `https://<IP>/phpmyadmin/`
+Chaque service tourne dans **son propre conteneur** (1 process = 1 conteneur). nginx est
+le seul point d'entrée exposé et termine le TLS ; WordPress et phpMyAdmin ne sont joignables
+qu'à travers lui, sur un réseau Docker interne.
 
 ---
 
-## Commandes utiles (correction)
+## Stack technique
 
-```bash
-# Idempotence : relancer -> doit finir en changed=0
-ansible-playbook deploy.yml --ask-vault-pass
-
-# Déployer un rôle isolé
-ansible-playbook deploy.yml --ask-vault-pass --tags docker   # ou tls / deploy / wordpress
-
-# Voir / éditer les secrets chiffrés
-ansible-vault view group_vars/all/vault.yml
-ansible-vault edit group_vars/all/vault.yml
-
-# Sur le serveur (via SSH)
-ssh -i ~/.ssh/cloud1-paris.pem ubuntu@<IP>
-cd /home/ubuntu/inception
-sudo docker compose ps                 # état des conteneurs
-sudo docker compose restart nginx      # redémarrer un conteneur
-sudo docker volume ls                  # voir les volumes (données persistées)
-sudo reboot                            # test persistance : le site remonte seul
-```
+| Couche            | Outil / Image            | Rôle                                                        |
+|-------------------|--------------------------|-------------------------------------------------------------|
+| Infrastructure    | **Terraform** (AWS)      | Instance EC2, Elastic IP, security group (firewall)         |
+| Configuration     | **Ansible**              | Installation Docker, déploiement de la stack, install WP    |
+| Reverse-proxy     | **nginx:alpine**         | Terminaison TLS, redirection HTTP → HTTPS                   |
+| CMS               | **wordpress:latest**     | Le site, installé automatiquement via wp-cli                |
+| Base de données   | **mariadb:10.6**         | Données WordPress, sur volume persistant                    |
+| Administration BDD| **phpmyadmin**           | Interface web d'administration de la base                   |
 
 ---
 
-## Nettoyage (après la soutenance)
+## Points clés de sécurité
 
-```bash
-cd terraform
-terraform destroy                      # supprime tout -> plus de facturation
+- **Secrets chiffrés** : `group_vars/all/vault.yml` est versionné chiffré (`ansible-vault`),
+  sa clé n'est jamais dans le dépôt.
+- **Mots de passe jamais en clair dans l'environnement** : MariaDB et WordPress lisent leurs
+  mots de passe via des **Docker secrets** (fichiers montés dans `/run/secrets/`), pas via des
+  variables d'environnement.
+- **phpMyAdmin sans credentials embarqués** : l'utilisateur s'authentifie avec ses propres
+  identifiants de base ; aucun secret n'est stocké dans le conteneur.
+- **Firewall minimal** : seuls les ports nécessaires (SSH, HTTP, HTTPS) sont ouverts côté AWS.
+
+---
+
+## Organisation du dépôt
+
 ```
+.
+├── terraform/              # Provisionnement de l'infra AWS (instance, IP, firewall)
+├── deploy.yml              # Playbook Ansible principal
+├── ansible.cfg
+├── inventory.ini.example   # Modèle d'inventaire (IP du serveur)
+├── group_vars/all/
+│   ├── vars.yml            # Variables non sensibles
+│   └── vault.yml           # Secrets (chiffré avec ansible-vault)
+└── roles/
+    ├── common/             # Préparation du serveur (paquets, dossiers)
+    ├── docker/             # Installation du moteur Docker
+    ├── tls/                # Certificat TLS (Let's Encrypt / auto-signé)
+    ├── deploy/             # docker-compose, nginx, .env → lancement de la stack
+    └── wordpress/          # Installation automatique du site via wp-cli
+```
+
+Le déploiement se joue en 5 rôles Ansible successifs, chacun taggé pour pouvoir être
+rejoué isolément.
+
+---
+
+## Idempotence & résilience
+
+- Le playbook est **idempotent** : le rejouer ne déclenche aucun changement si l'état
+  est déjà correct.
+- Les données (base MariaDB, fichiers WordPress) sont stockées sur des **volumes Docker**,
+  et les conteneurs redémarrent automatiquement (`restart: always`) : après un reboot du
+  serveur, le site remonte seul avec toutes ses données.
